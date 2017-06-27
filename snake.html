@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Forgive Snake</title>
+    <title>Snake</title>
     <style>
         body{
             font-family: Helvetica;
@@ -43,7 +43,7 @@
         var aliveA=true, aliveB=true;
 
         // Game objects
-        var canvas, ctx, keystate, frames, scoreA, scoreB;
+        var canvas, ctx, keystate, frames, scoreA, scoreB, pointSfx, winBg;
 
 
         var grid = {
@@ -156,6 +156,9 @@
             ctx = canvas.getContext("2d");
 
             ctx.font = "15px Helvetica";
+            pointSfx = new Audio("sounds/sfx_point.mp3");
+            winBg = new Audio("sounds/win.mp3");
+            winBg.loop = true;
 
             frames = 0;
             keystate = {};
@@ -177,6 +180,8 @@
             scoreB = 0;
             aliveA = true;
             aliveB = true;
+
+            winBg.load();
 
             var spA = {x:0, y:Math.floor(ROWS/2)};
             snakeA.init(RIGHT, spA.x, spA.y);
@@ -311,6 +316,8 @@
 
                 if (aliveA) {
                     if (grid.get(nx, ny) === FRUIT) {
+                        pointSfx.load();
+                        pointSfx.play();
                         scoreA ++;
                         setFood();
                     } else {
@@ -324,6 +331,8 @@
 
                 if (aliveB) {
                     if (grid.get(bx, by) === FRUIT) {
+                        pointSfx.load();
+                        pointSfx.play();
                         scoreB ++;
                         setFood();
                     } else {
@@ -362,16 +371,25 @@
                 }
             }
             ctx.fillStyle = "#9933ff";
-            ctx.fillText("Score: " + scoreB, canvas.width-80, canvas.height-10);
-            if (!aliveA) {
+            ctx.fillText("Score: " + scoreB, canvas.width-70, canvas.height-10);
+            if (!aliveA && aliveB) {
                 ctx.fillText("Purple Wins!", canvas.width/2-30, canvas.height-20);
+                winBg.play();
             }
 
             ctx.fillStyle = "#0f0";
             ctx.fillText("Score: " + scoreA, 10, canvas.height-10);
-            if (!aliveB) {
+            if (!aliveB && aliveA) {
                 ctx.fillText("Green Wins!", canvas.width/2-30, 20);
+                winBg.play();
             }
+
+            if (!aliveA && !aliveB) {
+                winBg.play();
+                ctx.fillStyle = "#ff6666";
+                ctx.fillText("Nobody wins! You all suck!", canvas.width/2-80, canvas.height/2);
+            }
+
         }
 
         main();
