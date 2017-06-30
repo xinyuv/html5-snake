@@ -41,6 +41,8 @@
             KEY_W=87, KEY_A=65, KEY_S=83, KEY_D=68;
         // alive
         var aliveA=true, aliveB=true;
+        // direction queue
+        var aQueue=[], bQueue=[];
 
         // Game objects
         var canvas, ctx, keystate, frames, scoreA, scoreB, pointSfx, winBg;
@@ -149,6 +151,18 @@
             grid.set(FRUIT, randpos.x, randpos.y);
         }
 
+        /*
+         *  Return if the new direction is valid. (Snake cannot turn back.)
+         */
+        function validDirection(snake, newDir) {
+            if (snake.getSize() === 1) return true;
+            var dir = snake.direction;
+            if (dir === LEFT)   return newDir != RIGHT;
+            if (dir === RIGHT)  return newDir != LEFT;
+            if (dir === UP)     return newDir != DOWN;
+            if (dir === DOWN)   return newDir != UP;
+        }
+
         function main() {
             canvas = document.getElementById('canvas');
             canvas.width = COLS*20;
@@ -180,6 +194,8 @@
             scoreB = 0;
             aliveA = true;
             aliveB = true;
+            aQueue = [];
+            bQueue = [];
 
             winBg.load();
 
@@ -207,42 +223,59 @@
             window.requestAnimationFrame(loop, canvas);
         }
 
+        /*
+         *  Push all keys pressed into a direction queue.
+         */
+        function checkKeyPressed(left, up, right, down, q) {
+            if (keystate[left]) {
+                q.unshift(LEFT);
+                delete keystate[left];
+            }
+            if (keystate[up]) {
+                q.unshift(UP);
+                delete keystate[up];
+            }
+            if (keystate[right]) {
+                q.unshift(RIGHT);
+                delete keystate[right]
+            }
+            if (keystate[down]) {
+                q.unshift(DOWN);
+                delete keystate[down];
+            }
+        }
+
         function update() {
 
             frames ++;
 
+            checkKeyPressed(KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN, aQueue);
+            checkKeyPressed(KEY_A, KEY_W, KEY_D, KEY_S, bQueue);
+
+            if (keystate[KEY_SPACE])
+                return init();
+
             if (frames%5 === 0) {
 
-                if (keystate[KEY_LEFT]
-                    && (snakeA.direction != RIGHT || snakeA.getSize() === 1))
-                    snakeA.direction = LEFT;
-                if (keystate[KEY_UP]
-                    && (snakeA.direction != DOWN || snakeA.getSize() === 1))
-                    snakeA.direction = UP;
-                if (keystate[KEY_RIGHT]
-                    && (snakeA.direction != LEFT || snakeA.getSize() === 1))
-                    snakeA.direction = RIGHT;
-                if (keystate[KEY_DOWN]
-                    && (snakeA.direction != UP || snakeA.getSize() === 1))
-                    snakeA.direction = DOWN;
+                var newDir = snakeA.direction;
+                while (aQueue.length > 0) {
+                    var dir = aQueue.pop();
+                    if (validDirection(snakeA, dir)) {
+                        newDir = dir;
+                        break;
+                    }
+                }
+                snakeA.direction = newDir;
 
-                if (keystate[KEY_A]
-                    && (snakeB.direction != RIGHT || snakeB.getSize() === 1))
-                    snakeB.direction = LEFT;
-                if (keystate[KEY_W]
-                    && (snakeB.direction != DOWN || snakeB.getSize() === 1))
-                    snakeB.direction = UP;
-                if (keystate[KEY_D]
-                    && (snakeB.direction != LEFT || snakeB.getSize() === 1))
-                    snakeB.direction = RIGHT;
-                if (keystate[KEY_S]
-                    && (snakeB.direction != UP || snakeB.getSize() === 1))
-                    snakeB.direction = DOWN;
-
-                if (keystate[KEY_SPACE])
-                    return init();
-
-
+                var newDir = snakeB.direction;
+                while (bQueue.length > 0) {
+                    var dir = bQueue.pop();
+                    if (validDirection(snakeB, dir)) {
+                        newDir = dir;
+                        break;
+                    }
+                }
+                snakeB.direction = newDir;
 
                 var nx = snakeA.head.x;
                 var ny = snakeA.head.y;
