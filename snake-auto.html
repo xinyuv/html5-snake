@@ -31,7 +31,7 @@
 
     <script>
         // Constants
-        var COLS=5, ROWS=5;
+        var COLS=6, ROWS=6;
         // IDs
         var EMPTY=0, FRUIT=1, SNAKE=2;
         // Directions
@@ -176,11 +176,19 @@
 
                 if (alive) {
 
-                    if (!bfs()) {
-                        console.log('Change strategy');
-                        turn();
-                    }
+                    // if (!bfs()) {
+                    //     console.log('Change strategy');
+                    //     turn();
+                    // }
 
+                    // if (!astar()) {
+                    //     console.log('Change strategy');
+                    //     turn();
+                    // }
+
+                    cycle();
+
+                    // turn();
                 }
 
                 update();
@@ -191,17 +199,21 @@
             window.requestAnimationFrame(loop, canvas);
         }
 
-        // Simple strategy
+        // return 4 neighbors of c
+        function getNeighbors(c) {
+            return newPos = [
+                    {x:(c.x-1<0 ? grid.width-1 : c.x-1), y:c.y},
+                    {x:(c.x+1>grid.width-1 ? 0 : c.x+1), y:c.y},
+                    {x:c.x, y:(c.y-1<0 ? grid.height-1 : c.y-1)},
+                    {x:c.x, y:(c.y+1>grid.height-1 ? 0 : c.y+1)}
+                ];
+        }
+
+        // simple strategy -- best first
         function turn() {
-            var cx = snake.head.x;
-            var cy = snake.head.y;
-            var newPos = [
-                {x:(cx-1<0 ? grid.width-1 : cx-1), y:cy},
-                {x:(cx+1>grid.width-1 ? 0 : cx+1), y:cy},
-                {x:cx, y:(cy-1<0 ? grid.height-1 : cy-1)},
-                {x:cx, y:(cy+1>grid.height-1 ? 0 : cy+1)}
-            ];
+            var newPos = getNeighbors(snake.head);
             var newDirection = [LEFT, RIGHT, UP, DOWN];
+
             for (var i = 3; i >= 0; i --) {
                 if (grid.get(newPos[i].x, newPos[i].y) === SNAKE) {
                     newDirection.splice(i, 1);
@@ -211,13 +223,27 @@
             var best = {dir:null, dist:Number.MAX_VALUE};
             for (var i = 0; i < newPos.length; i ++) {
                 // manhattan distance
-                var dis = Math.abs(newPos[i].x - fruitPos.x)
-                        + Math.abs(newPos[i].y - fruitPos.y);
+                var dis = mhtDist(newPos[i], fruitPos);
                 if (dis < best.dist) {
                     best = {dir:newDirection[i], dist:dis};
                 }
             }
             snake.direction = best.dir;
+        }
+
+        // hamiltonian cycle -- keep cycling the grid while ignoring the fruit
+        // NOTE: grid width/height must be even
+        function cycle() {
+            var cx = snake.head.x;
+            var cy = snake.head.y;
+
+            if (cx % 2 == 0) {
+                // at even column
+                snake.direction = cy === 0 ? RIGHT : UP;
+            } else {
+                // at odd column
+                snake.direction = cy === grid.height - 1 ? RIGHT : DOWN;
+            }
         }
 
         //BFS
@@ -232,14 +258,11 @@
 
                 var c = JSON.parse(q.pop());
                 if (c.x === fruitPos.x && c.y === fruitPos.y) {
-                    break;
+                    constructPath(p);
+                    return true;
                 }
-                var newPos = [
-                    {x:(c.x-1<0 ? grid.width-1 : c.x-1), y:c.y},
-                    {x:(c.x+1>grid.width-1 ? 0 : c.x+1), y:c.y},
-                    {x:c.x, y:(c.y-1<0 ? grid.height-1 : c.y-1)},
-                    {x:c.x, y:(c.y+1>grid.height-1 ? 0 : c.y+1)}
-                ];
+                var newPos = getNeighbors(c);
+
                 newPos.forEach(function(neighbor) {
                     if (grid.get(neighbor.x, neighbor.y) != SNAKE
                             && !set.has(JSON.stringify(neighbor))) {
@@ -251,25 +274,25 @@
                 });
             }
 
+            // no solution
+            console.log('NO BFS SOLUTION FOUND');
+            return false;
+        }
+
+        // construct path
+        function constructPath(p) {
             var nextStep = JSON.stringify(fruitPos);
             var c = p[nextStep];
-
-            // no solution
-            if (c == undefined) {
-                console.log('NO BFS SOLUTION FOUND');
-                return false;
-            }
 
             while (c.x != snake.head.x || c.y != snake.head.y) {
                 nextStep = JSON.stringify(c);
                 c = p[nextStep];
             }
-            var newPos =[
-                JSON.stringify({x:(c.x-1<0 ? grid.width-1 : c.x-1), y:c.y}),
-                JSON.stringify({x:(c.x+1>grid.width-1 ? 0 : c.x+1), y:c.y}),
-                JSON.stringify({x:c.x, y:(c.y-1<0 ? grid.height-1 : c.y-1)}),
-                JSON.stringify({x:c.x, y:(c.y+1>grid.height-1 ? 0 : c.y+1)})
-            ];
+
+            var newPos = getNeighbors(c);
+            newPos.forEach(function(item, i) {
+                newPos[i] = JSON.stringify(item);
+            });
 
             if (nextStep === newPos[0]) {
                 snake.direction = LEFT;
@@ -282,7 +305,72 @@
             } else {
                 console.log('??????');
             }
+
             return true;
+        }
+
+        // manhattan distance between start and end point
+        function mhtDist(start, end) {
+            return Math.abs(start.x - end.x) + Math.abs(start.y - end.y);
+        }
+
+        // helper function for astar
+        // get lowest fscore node from set
+        Set.prototype.pop = function (fScore) {
+            var lowest = null;
+            this.forEach(function(item) {
+                if (lowest === null) lowest = item;
+                if (fScore[item] < fScore[lowest]) {
+                    lowest = item;
+                }
+            });
+
+            return JSON.parse(lowest);
+        };
+
+        // A* algorithm
+        function astar() {
+            var closedSet = new Set();
+            var openSet = new Set();
+            openSet.add(JSON.stringify(snake.head));
+
+            var p = [];
+
+            var gScore = [];
+            gScore[JSON.stringify(snake.head)] = 0;
+            var fScore = [];
+            fScore[JSON.stringify(snake.head)] = mhtDist(snake.head, fruitPos); // pure heuristic
+
+            while (openSet.size > 0) {
+
+                var current = openSet.pop(fScore);
+                var c = JSON.stringify(current);
+                if (current.x === fruitPos.x && current.y === fruitPos.y) {
+                    constructPath(p);
+                    return true;
+                }
+                openSet.delete(c);
+                closedSet.add(c);
+
+                var newPos = getNeighbors(current);
+
+                newPos.forEach(function(neighbor) {
+                    if (grid.get(neighbor.x, neighbor.y) === SNAKE) return;
+
+                    var n = JSON.stringify(neighbor);
+                    if (closedSet.has(n)) return;           // evaluated
+                    if (!openSet.has(n)) openSet.add(n);    // a new node
+
+                    var g = gScore[c] + 1;
+                    if (g > gScore[n]) return;              // not better
+
+                    // a better path
+                    p[n] = current;
+                    gScore[n] = g;
+                    fScore[n] = g + mhtDist(neighbor, fruitPos);
+                });
+            }
+            return false;
         }
 
         function update() {
