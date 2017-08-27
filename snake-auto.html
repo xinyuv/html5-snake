@@ -11,16 +11,26 @@
         canvas{
             display: block;
             position: absolute;
-            border: 1px solid #000;
+            border: 1px solid #333;
             margin: auto;
             top: 0;
             bottom: 0;
             left: 0;
             right: 0;
+		}
+
+        select{
+            background-color: transparent;
+            height: 50px;
+            width: 300px;
+            font-size: 20px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 5px;
         }
-        ul{
-            display: flex;
-            flex-direction: column-reverse;
+
+        select:focus{
+            outline: none;
         }
     </style>
 </head>
@@ -29,9 +39,17 @@
         Sorry, your browser does not support this fabulous game.
     </canvas>
 
+    <select id="select">
+        <option value="BFS">BFS - Breath First Search</option>
+        <option value="AStar">A* algorithm</option>
+        <option value="Cycle">Cycle around the map</option>
+    </select>
+
     <script>
         // Constants
-        var COLS=6, ROWS=6;
+        var COLS=16, ROWS=16;
+        // Snake strategy type
+        var strategy=0;
         // IDs
         var EMPTY=0, FRUIT=1, SNAKE=2;
         // Directions
@@ -140,10 +158,16 @@
             keystate = {};
             document.addEventListener("keydown", function(evt) {
                 keystate[evt.keyCode] = true;
-            })
+            });
             document.addEventListener("keyup", function(evt) {
                 delete keystate[evt.keyCode];
-            })
+            });
+
+            var selectedType = document.getElementById('select');
+            selectedType.addEventListener("change", function(evt) {
+                strategy = evt.target.selectedIndex;
+                init();
+            });
 
             init();
             loop();
@@ -176,19 +200,22 @@
 
                 if (alive) {
 
-                    // if (!bfs()) {
-                    //     console.log('Change strategy');
-                    //     turn();
-                    // }
+                    if (strategy === 0) {
+                        // BFS
+                        if (!bfs()) {
+                            console.log('Change strategy');
+                            turn();
+                        }
+                    } else if (strategy === 1) {
+                        // AStar
+                        if (!astar()) {
+                            console.log('Change strategy');
+                            turn();
+                        }
+                    } else if (strategy === 2) {
+                        cycle();
+                    }
 
-                    // if (!astar()) {
-                    //     console.log('Change strategy');
-                    //     turn();
-                    // }
-
-                    cycle();
-
-                    // turn();
                 }
 
                 update();
@@ -200,14 +227,33 @@
         }
 
         // return 4 neighbors of c
+		// allows wall crossing
         function getNeighbors(c) {
             return newPos = [
-                    {x:(c.x-1<0 ? grid.width-1 : c.x-1), y:c.y},
-                    {x:(c.x+1>grid.width-1 ? 0 : c.x+1), y:c.y},
-                    {x:c.x, y:(c.y-1<0 ? grid.height-1 : c.y-1)},
-                    {x:c.x, y:(c.y+1>grid.height-1 ? 0 : c.y+1)}
-                ];
+				{x:(c.x-1<0 ? grid.width-1 : c.x-1), y:c.y},
+				{x:(c.x+1>grid.width-1 ? 0 : c.x+1), y:c.y},
+				{x:c.x, y:(c.y-1<0 ? grid.height-1 : c.y-1)},
+				{x:c.x, y:(c.y+1>grid.height-1 ? 0 : c.y+1)}
+			];
         }
+
+		// no wall crossing
+		function getNeighborsWall(c) {
+			return newPos = [
+				{x:c.x-1, y:c.y},
+				{x:c.x+1, y:c.y},
+				{x:c.x, y:c.y-1},
+				{x:c.x, y:c.y+1}
+			];
+		}
+
+		function isAlive(c) {
+			return grid.get(c.x, c.y) !== SNAKE
+				&& c.x >= 0
+				&& c.x < grid.width
+				&& c.y >= 0
+				&& c.y < grid.height;
+		}
 
         // simple strategy -- best first
         function turn() {
@@ -215,7 +261,7 @@
             var newDirection = [LEFT, RIGHT, UP, DOWN];
 
             for (var i = 3; i >= 0; i --) {
-                if (grid.get(newPos[i].x, newPos[i].y) === SNAKE) {
+                if (!isAlive(newPos[i])) {
                     newDirection.splice(i, 1);
                     newPos.splice(i, 1);
                 }
@@ -264,8 +310,7 @@
                 var newPos = getNeighbors(c);
 
                 newPos.forEach(function(neighbor) {
-                    if (grid.get(neighbor.x, neighbor.y) != SNAKE
-                            && !set.has(JSON.stringify(neighbor))) {
+                    if (isAlive(neighbor) && !set.has(JSON.stringify(neighbor))) {
                         neighbor = JSON.stringify(neighbor);
                         set.add(neighbor);
                         p[neighbor] = c;
